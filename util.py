@@ -182,3 +182,12 @@ def target2cam(dir = "./mkv_calib", mtx = None, dist = None, rx=None, tx=None, b
 		print("Done!")
 
 	return rVec_target2cam, rMat_target2cam, t_target2cam
+
+def combineRT(R, t, inv=False):
+	M = np.eye(4)
+	if inv:
+		R = Rotation.from_matrix(np.asarray(R)).inv().as_matrix()
+		t *= -1
+	M[:3, :3] = np.asarray(R)
+	M[:3, 3] =  np.asarray(t).ravel()
+	return M
