@@ -1,6 +1,6 @@
 import open3d as o3d
 import numpy as np
-import os, json, glob
+import os, glob
 import pyk4a, cv2
 
 from pyk4a import Config, PyK4A, PyK4APlayback
@@ -183,7 +183,7 @@ def target2cam(dir = "./mkv_calib", mtx = None, dist = None, rx=None, tx=None, b
 
 	return rVec_target2cam, rMat_target2cam, t_target2cam
 
-def combineRT(R, t, inv=False):
+def composeH(R, t, inv=False):
 	M = np.eye(4)
 	if inv:
 		R = Rotation.from_matrix(np.asarray(R)).inv().as_matrix()
