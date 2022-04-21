@@ -238,17 +238,18 @@ def target2cam_depth(dir = None, trajectory = None, methods = None, threshold = 
 			extrinsic = pinhole_extrinsics[method][i]
 
 			pcd = o3d.geometry.PointCloud.create_from_depth_image(img, intrinsic, extrinsic)
-			o3d.io.write_point_cloud('./test.ply', pcd)
 
 			points = np.asarray(pcd.points)
 			maskY = np.ma.masked_inside(points[:,1], -0.275, 0.275).mask
 			maskX = np.ma.masked_inside(points[:,0], 0.725, 1.275).mask
 			mask = np.where(np.logical_and(maskX,maskY))
 			source = pcd.select_by_index(mask[0])
+			o3d.io.write_point_cloud('./test.ply', source)
+
 			guess = np.eye(4)
-			guess[2][3] = .012
 			reg_p2l = o3d.pipelines.registration.registration_icp(source, target, threshold, guess,
-																  o3d.pipelines.registration.TransformationEstimationPointToPlane())
+																  o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+																  o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=2000))
 			T = reg_p2l.transformation
 			T = np.linalg.inv(T)
 
