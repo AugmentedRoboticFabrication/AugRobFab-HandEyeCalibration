@@ -1,0 +1,17 @@
+test*
+*.mkv
+*.ply
+*.plybak
+*.py[cod]
+__pycache__/
+.ipynb_checkpoints/
+
+# Generated calibration capture frames
+/color/color/
+/color/depth/
+/mkv_calib/color/
+/mkv_calib/depth/
+/geo_comp/color/
+/geo_comp/depth/
+/geo_ruled/color/
+/geo_ruled/depth/
