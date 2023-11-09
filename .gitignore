@@ -1,4 +1,4 @@
-
+test*
 *.mkv
 *.ply
 /__pycache__
