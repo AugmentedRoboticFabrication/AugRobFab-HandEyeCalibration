@@ -1,88 +1,95 @@
-import os, cv2
+import os
+import cv2
 import pyk4a
-import numpy as np
+from src.util import writeJSON
+
 
 class AzureKinectMKVParser(object):
+	"""
+	A parser class for processing MKV files captured using an Azure Kinect device.
+	This class allows for the extraction of color, depth, and infrared frames, 
+	as well as exporting calibration data from the MKV file.
+	"""
+
 	def __init__(
-			self,
-			dir,
-			file_name='capture.mkv',
-			):
+		self,
+		dir,
+		file_name='capture.mkv',
+	) -> None:
+		"""
+		Initializes the AzureKinectMKVParser object.
+
+		:param dir: The directory where the MKV file is located.
+		:param file_name: The name of the MKV file to be parsed. Default is 'capture.mkv'.
+		"""
 		self.dir = dir
-		
 		self.mkv_path = os.path.join(dir, file_name)
 		self.playback = pyk4a.PyK4APlayback(self.mkv_path)
 
 	def export_frames(self, color=True, depth=True, ir=True):
+		"""
+		Exports color, depth, and infrared frames from the MKV file.
+
+		:param color: A boolean indicating if color frames should be exported. Default is True.
+		:param depth: A boolean indicating if depth frames should be exported. Default is True.
+		:param ir: A boolean indicating if infrared frames should be exported. Default is True.
+		"""
+		# Directory paths for color, depth, and IR images
 		color_path = os.path.join(self.dir, 'color')
+		depth_path = os.path.join(self.dir, 'depth')
+		ir_path = os.path.join(self.dir, 'ir')
+
+		# Create directories if they don't exist
 		if color and not os.path.exists(color_path):
 			os.mkdir(color_path)
-
-		depth_path = os.path.join(self.dir, 'depth')
-		if depth and not os.path.exists(color_path):
+		if depth and not os.path.exists(depth_path):
 			os.mkdir(depth_path)
-
-		ir_path = os.path.join(self.dir, 'ir')
-		if ir and not os.path.exists(color_path):
+		if ir and not os.path.exists(ir_path):
 			os.mkdir(ir_path)
 
-		self.playback.open()
+		self.playback.open()  # Open the MKV file for reading
 
 		i = 0
 		while True:
 			try:
 				capture = self.playback.get_next_capture()
-				if exportColor and capture.color is not None:
+				# Export frames based on the specified types
+				if color and capture.color is not None:
 					path = os.path.join(color_path, f'color_{i:03}.png')
 					cv2.imwrite(path, capture.color)
-				if exportDepth and capture.depth is not None:
+				if depth and capture.depth is not None:
 					path = os.path.join(depth_path, f'depth_{i:03}.png')
-					cv2.imwrite(path, capture.depth)				
-				if exportIR and capture.ir is not None:
+					cv2.imwrite(path, capture.depth)
+				if ir and capture.ir is not None:
 					path = os.path.join(ir_path, f'ir_{i:03}.png')
 					cv2.imwrite(path, capture.ir)
+				i += 1
 			except EOFError:
-				break
-		
-		self.playback.close()
+				break  # End of file reached
 
-		# self.reader.open(self.mkv)
+		self.playback.close()  # Close the MKV file
 
-		# metadata = self.reader.get_metadata()
-		# o3d.io.write_azure_kinect_mkv_metadata('%s\\%s\\intrinsic.json' %(self.root, self.dir), metadata)
+	def export_calibration(self):
+		"""
+		Exports the intrinsic calibration matrix and distortion coefficients from the MKV file.
 
-		# index = 0
-		# while not self.reader.is_eof():
-		# 	rgbd = self.reader.next_frame()
-		# 	if rgbd is None:
-		# 		continue
+		:return: A tuple containing lists of intrinsic matrix and distortion coefficients.
+		"""
+		self.playback.open()  # Open the MKV file for reading
 
-		# 	if color:
-		# 		color_fn = '%s\\%s\\color\\%03d.jpg' % (self.root, self.dir, index)
-		# 		o3d.io.write_image(color_fn, rgbd.color)
+		# Get intrinsic matrix and distortion coefficients
+		tof_intrinsic_array = self.playback.calibration.get_camera_matrix(
+			pyk4a.calibration.CalibrationType.DEPTH)
+		tof_intrinsic_list = tof_intrinsic_array.tolist()
 
-		# 	if depth:
-		# 		depth_fn = '%s\\%s\\depth\\%03d.png' % (self.root, self.dir, index)
-		# 		o3d.io.write_image(depth_fn, rgbd.depth)
-		# 	index += 1
-		
-		# self.reader.close()
+		tof_distortion_array = self.playback.calibration.get_distortion_coefficients(
+			pyk4a.CalibrationType.DEPTH)
+		tof_distortion_list = tof_distortion_array.tolist()
 
-	def calibration(self):
-		os.add_dll_directory("C:\\Program Files\\Azure Kinect SDK v1.4.1\\sdk\\windows-desktop\\amd64\\release\\bin")
-		import pyk4a
-		from pyk4a import PyK4APlayback
+		data = {"intrinsic_matrix": tof_intrinsic_list,
+				"distortion_coefficients": tof_distortion_list}
 
-		self.playback = PyK4APlayback(self.mkv)
-		print('Exporting factory calibration:')
-		self.playback.open()
+		json_path = os.path.join(self.dir, 'intrinsic.json')
+		writeJSON(data, json_path)  # Write calibration data to a JSON file
 
-		mtx = self.playback.calibration.get_camera_matrix(pyk4a.calibration.CalibrationType.COLOR).tolist()
-		dist = self.playback.calibration.get_distortion_coefficients(pyk4a.calibration.CalibrationType.COLOR).tolist()
-
-		np.savez('%s\\%s\\calibration' %(self.root, self.dir), mtx=mtx, dist=dist)
-
-		print('Camera Matrix:\n', mtx)
-		print('Distortion Coefficients:\n',dist)
-
-		self.playback.close()
+		return tof_intrinsic_list, tof_distortion_list
