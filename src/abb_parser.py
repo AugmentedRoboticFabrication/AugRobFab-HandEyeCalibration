@@ -19,10 +19,11 @@ class TROBParser:
 		parsing_method='robtarget'
 	) -> None:
 		"""
-		Initializes the TROBParser object.
+		Initializes the TROBParser object with the specified directory, extrinsic calibration data,
+		and the parsing method for the .mod files.
 
 		:param dir: Directory where the .mod files and other related data are stored.
-		:param extrinsic: Path to the JSON file containing extrinsic calibration data.
+		:param extrinsic_dir: Path to the JSON file containing extrinsic calibration data.
 		:param parsing_method: Method used for parsing the .mod files. Default is 'robtarget'.
 		"""
 
@@ -30,6 +31,7 @@ class TROBParser:
 
 		self.parsing_method = parsing_method.lower()
 
+		# Load extrinsic calibration data if provided, and print it for verification
 		if extrinsic_dir is not None:
 			data = readJSON(extrinsic_dir)
 			self.extrinsic = np.asarray(data.get('extrinsic')).reshape((4,4))
@@ -56,26 +58,6 @@ class TROBParser:
 			raise RuntimeError("No .mod files exist!")
 		else:
 			return mod_files[0]
-
-	def _parse_mod_file(self, file_name):
-		"""
-		Parses the given .mod file for robot movement instructions.
-
-		:param file_name: Name of the .mod file to be parsed.
-		"""
-
-		tmp = line.split()
-		if tmp[0] == "MoveL":
-			tmp = tmp[1][1:-1].split(']')
-
-			pos = tmp[0][1:].split(",")
-			pos = [float(i) for i in pos]
-			pos = np.asarray(pos).reshape(-1, 3)
-
-			quat = tmp[1][2:].split(",")
-			quat = [float(i) for i in quat]
-			quat = [quat[1], quat[2], quat[3], quat[0]]
-		pass
 
 	def _parse_robtarget_line(self, line):
 		"""
@@ -181,7 +163,7 @@ class TROBParser:
 			return data
 		else:
 			raise RuntimeError(
-				f"No robtarget or MoveL keywords were found in {mod_file}!")
+				f"No robtarget or MoveL keywords were found in {mod_path}!")
 
 	def base_T_camera(self):
 		"""

@@ -39,7 +39,7 @@ class AzureKinectMKVParser(object):
 		depth_path = os.path.join(self.dir, 'depth')
 		ir_path = os.path.join(self.dir, 'ir')
 
-		# Create directories if they don't exist
+        # Creating directories for storing the exported frames
 		if color and not os.path.exists(color_path):
 			os.mkdir(color_path)
 		if depth and not os.path.exists(depth_path):
@@ -53,7 +53,7 @@ class AzureKinectMKVParser(object):
 		while True:
 			try:
 				capture = self.playback.get_next_capture()
-				# Export frames based on the specified types
+                # Write the frames to the respective directories as image files
 				if color and capture.color is not None:
 					path = os.path.join(color_path, f'color_{i:03}.png')
 					cv2.imwrite(path, capture.color)
@@ -67,7 +67,7 @@ class AzureKinectMKVParser(object):
 			except EOFError:
 				break  # End of file reached
 
-		self.playback.close()  # Close the MKV file
+		self.playback.close()  # Close the MKV file after exporting frames
 
 	def export_calibration(self):
 		"""
@@ -77,7 +77,7 @@ class AzureKinectMKVParser(object):
 		"""
 		self.playback.open()  # Open the MKV file for reading
 
-		# Get intrinsic matrix and distortion coefficients
+        # Retrieve intrinsic calibration and distortion data from the MKV file
 		tof_intrinsic_array = self.playback.calibration.get_camera_matrix(
 			pyk4a.calibration.CalibrationType.DEPTH)
 		tof_intrinsic_list = tof_intrinsic_array.tolist()
@@ -86,6 +86,7 @@ class AzureKinectMKVParser(object):
 			pyk4a.CalibrationType.DEPTH)
 		tof_distortion_list = tof_distortion_array.tolist()
 
+		# Writing calibration data to a JSON file for later use
 		data = {"intrinsic_matrix": tof_intrinsic_list,
 				"distortion_coefficients": tof_distortion_list}
 
