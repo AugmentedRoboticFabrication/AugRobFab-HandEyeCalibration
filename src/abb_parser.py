@@ -15,7 +15,7 @@ class TROBParser:
 	def __init__(
 		self,
 		dir=None,
-		extrinsic=None,
+		extrinsic_dir=None,
 		parsing_method='robtarget'
 	) -> None:
 		"""
@@ -30,12 +30,15 @@ class TROBParser:
 
 		self.parsing_method = parsing_method.lower()
 
-		if extrinsic is not None:
-			extrinsic_dir = os.path.join(self.dir, extrinsic)
+		if extrinsic_dir is not None:
 			data = readJSON(extrinsic_dir)
-			self.extrinsic = data.get('extrinsic')
+			self.extrinsic = np.asarray(data.get('extrinsic')).reshape((4,4))
+			print("-------------------")
+			print("Extrinsic Calibration:")
+			print(self.extrinsic)
+			print("-------------------")
 		else:
-			self.extrinsic = extrinsic
+			self.extrinsic = extrinsic_dir
 
 	def _find_mod_file(self):
 		"""
@@ -175,7 +178,7 @@ class TROBParser:
 			}
 			path = os.path.join(self.dir, 'base_T_tcp.json')
 			writeJSON(data, path)
-			return np.asarray(L_pos), np.asarray(L_quat), np.asarray(L_rotmat), np.asarray(L_rotvec), np.asarray(L_H)
+			return data
 		else:
 			raise RuntimeError(
 				f"No robtarget or MoveL keywords were found in {mod_file}!")
@@ -190,7 +193,8 @@ class TROBParser:
 
 		if self.extrinsic is None:
 			raise RuntimeError('No extrinsic was given!')
-		_, _, _, _, Ts = self.base_T_tcp()
+		data = self.base_T_tcp()
+		Ts = np.asarray(data.get('H')).reshape((-1,4,4))
 
 		L_pos = []
 		L_quat = []
@@ -222,10 +226,8 @@ class TROBParser:
 			}
 			path = os.path.join(self.dir, 'base_T_camera.json')
 			writeJSON(data, path)
-			return np.asarray(L_pos), np.asarray(L_quat), np.asarray(L_rotmat), np.asarray(L_rotvec), np.asarray(L_H)
-
-		return base_T_camera
-
+			return data
+		
 	def trajectory(self):
 		"""
 		Computes and logs the robot's trajectory based on the transformations to the camera frame.
@@ -233,7 +235,8 @@ class TROBParser:
 		:return: A list of transformation matrices representing the robot's trajectory.
 		"""
 
-		Ts = self.base_T_camera()
+		data = self.base_T_camera()
+		Ts = np.asarray(data.get('H')).reshape((-1,4,4))
 		n = len(Ts)
 		result = []
 
@@ -242,7 +245,8 @@ class TROBParser:
 			for i in range(n):
 				f.write('{} {} {}\n'.format(i-1, i, n))
 
-				T = Ts[i]
+				T = np.asarray(Ts[i]).reshape((4,4))
+				
 				T[:3, 3] *= 0.001
 
 				result.append(T)
