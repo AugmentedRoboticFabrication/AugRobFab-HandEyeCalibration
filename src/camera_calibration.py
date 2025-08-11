@@ -158,7 +158,7 @@ class CameraCalibration:
 
         return L_rotvec, L_pos, L_failed_id
 
-    def calibrate(self, method=cv2.CALIB_HAND_EYE_TSAI):
+    def calibrate(self, method=cv2.CALIB_HAND_EYE_TSAI, fn="tcp_T_camera.json"):
         """
         Performs hand-eye calibration using the detected checkerboard in images.
         This method is used to estimate the transformation between the robot's hand (end effector) and the camera.
@@ -195,7 +195,10 @@ class CameraCalibration:
 
         if not os.path.exists(self.save_dir):
             os.mkdir('self.save_dir')
-        path = os.path.join(self.save_dir, "tcp_T_camera.json")
+
+        if not fn.endswith(".json"):
+            raise Exception("File name does not end with '.json'!")
+        path = os.path.join(self.save_dir, fn)
         data = {'extrinsic': H.tolist()}
 
         print("-------------------")

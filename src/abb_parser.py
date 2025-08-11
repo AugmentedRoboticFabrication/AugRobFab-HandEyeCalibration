@@ -1,5 +1,6 @@
 import glob
 import re
+import ast
 import os
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -35,12 +36,12 @@ class TROBParser:
 		if extrinsic_dir is not None:
 			data = readJSON(extrinsic_dir)
 			self.extrinsic = np.asarray(data.get('extrinsic')).reshape((4,4))
-			print("-------------------")
-			print("Extrinsic Calibration:")
-			print(self.extrinsic)
-			print("-------------------")
 		else:
-			self.extrinsic = extrinsic_dir
+			self.extrinsic = np.eye(4)
+		print("-------------------")
+		print("Extrinsic Calibration:")
+		print(self.extrinsic)
+		print("-------------------")
 
 	def _find_mod_file(self):
 		"""
@@ -90,29 +91,41 @@ class TROBParser:
 
 	def _parse_moveL_line(self, line):
 		"""
-		Parses a single line from the .mod file for MoveL instructions.
+		Parses a single line from the .mod file for MoveL instructions, handling variations in spacing
+		and formats by normalizing the line and safely evaluating the nested array structures.
 
 		:param line: A line from the .mod file.
-		:return: A tuple (ret, pos, quat) as in _parse_robtarget_line.
+		:return: A tuple (ret, pos, quat) where ret is a boolean indicating if the line contains valid data,
+				pos is the position vector, and quat is the quaternion for orientation.
 		"""
+		# Normalize the line by removing all whitespace
+		normalized_line = re.sub(r'\s+', '', line)
 
 		pos = None
 		quat = None
 		ret = False
 
-		tmp = line.split()
+		# Check if the normalized line starts with "MoveL"
+		if normalized_line.startswith("MoveL"):
+			try:
+				# Extract the content within the first set of square brackets after "MoveL"
+				start_index = normalized_line.find('[')
+				end_index = normalized_line.rfind(']') + 1
+				if start_index != -1 and end_index != -1:
+					array_str = normalized_line[start_index:end_index]
+					# Replace non-numeric, non-standard elements with a placeholder if necessary
+					clean_array_str = re.sub(r'[a-zA-Z]+', '0', array_str)
+					array_data = ast.literal_eval(clean_array_str)
+					
+					# Assuming the first element is position and the second is quaternion
+					if len(array_data) >= 2:
+						pos = array_data[0]
+						quat = array_data[1][:4]  # Ensure quat is the first four elements if more data is present
+						quat = [quat[1], quat[2], quat[3], quat[0]]
+						ret = True
+			except (ValueError, SyntaxError) as e:
+				print(f"Error parsing line: {line}\n{e}")
 
-		if len(tmp) > 1 and tmp[0] == "MoveL":
-			tmp = tmp[1][1:-1].split(']')
-
-			pos = tmp[0][1:].split(",")
-			pos = [float(i) for i in pos]
-
-			quat = tmp[1][2:].split(",")
-			quat = [float(i) for i in quat]
-			quat = [quat[1], quat[2], quat[3], quat[0]]
-
-			ret = True
 		return ret, pos, quat
 
 	def base_T_tcp(self):
@@ -173,8 +186,6 @@ class TROBParser:
 		:raises RuntimeError: If no extrinsic calibration data is provided.
 		"""
 
-		if self.extrinsic is None:
-			raise RuntimeError('No extrinsic was given!')
 		data = self.base_T_tcp()
 		Ts = np.asarray(data.get('H')).reshape((-1,4,4))
 
